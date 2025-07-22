@@ -1,6 +1,7 @@
-# llm-chat
+# Chata12
+### as in 2.0
 
-Just a simple HTML UI for Ollama (retrofitted with support for [Cloudflare
+Just a complex HTML UI for Ollama (retrofitted with support for [Cloudflare
 Workers AI](https://developers.cloudflare.com/workers-ai/))
 
 > 🍴 Forked from [https://github.com/ollama-ui/ollama-ui](https://github.com/ollama-ui/ollama-ui)
