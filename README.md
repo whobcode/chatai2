@@ -1,4 +1,4 @@
-# Chata12
+# Chatai2
 ### as in 2.0
 
 Just a complex HTML UI for Ollama (retrofitted with support for [Cloudflare
