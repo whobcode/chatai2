@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "chatai2",
+  "description": "This extension hosts an llm-chat web server on localhost",
+  "version": "1.6",
+  "action": {},
+  "permissions": ["declarativeNetRequest"],
+  "host_permissions": [
+    "http://*:8788/src/api/tags",
+    "http://*:8788/src/api/generate",
+    "https://*:8788/src/api/tags",
+    "https://*:8788/src/api/generate",
+    "http://*:80/src/api/tags",
+    "http://*:8080/src/api/generate",
+    "https://*:8443/src/api/tags",
+    "https://*:443/src/api/generate"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
+
