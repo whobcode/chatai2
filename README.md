@@ -1,8 +1,8 @@
 # Chatai2
 ### as in 2.0
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/whobcode/chatai2)
 
-Just a complex HTML UI for Ollama (retrofitted with support for [Cloudflare
-Workers AI](https://developers.cloudflare.com/workers-ai/))
+Just a complex HTML UI for Ollama (retrofitted with support for [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/)
 
 > 🍴 Forked from [https://github.com/ollama-ui/ollama-ui](https://github.com/ollama-ui/ollama-ui)
 
