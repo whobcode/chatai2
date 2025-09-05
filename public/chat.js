@@ -1,52 +1,88 @@
-/**
- * @file This file contains the main logic for the chat interface.
- * It handles user input, API requests, response streaming, and chat history management.
- */
-
-/**
- * A string containing FAQ information about connecting to the Abacus.ai API.
- * @type {string}
- */
 const faqString = `
-**How do I connect to the Abacus.ai API?**
+**How can I expose the Ollama server?**
 
-This application is configured to connect to the Abacus.ai API by default. Ensure you have a valid API key and that the host address is set correctly. For more information, please refer to the [Abacus.ai API documentation](https://abacus.ai/help/api/ref/).
+By default, Ollama allows cross origin requests from 127.0.0.1 and 0.0.0.0.
+
+To support more origins, you can use the OLLAMA_ORIGINS environment variable:
+
+\`\`\`
+OLLAMA_ORIGINS=${window.location.origin} ollama serve
+\`\`\`
+
+Also see: https://github.com/jmorganca/ollama/blob/main/docs/faq.md
 `;
 
-/**
- * SVG icon for the copy-to-clipboard button.
- * @type {string}
- */
 const clipboardIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
 <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
 <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
 </svg>`;
-
-/**
- * The base height of the text input box in pixels.
- * @type {number}
- */
 const textBoxBaseHeight = 40; // This should match the default height set in CSS
 
-// Configure the 'marked' library to disable deprecated features.
+// change settings of marked from default to remove deprecation warnings
 // see conversation here: https://github.com/markedjs/marked/issues/2793
+/*
 marked.use({
   mangle: false,
   headerIds: false,
 });
+*/
+document.addEventListener("DOMContentLoaded", function () {
+  updateChatList();
+  populateModels();
+  adjustPadding();
+  autoFocusInput();
 
-/**
- * Sets focus to the user input text area.
- */
+  // All event listeners go here:
+  const deleteChatBtn = document.getElementById("delete-chat");
+  if (deleteChatBtn) deleteChatBtn.addEventListener("click", deleteChat);
+
+  const newChatBtn = document.getElementById("new-chat");
+  if (newChatBtn) newChatBtn.addEventListener("click", startNewChat);
+
+  const saveNameBtn = document.getElementById("saveName");
+  if (saveNameBtn) saveNameBtn.addEventListener("click", saveChat);
+
+  const chatSelect = document.getElementById("chat-select");
+  if (chatSelect) chatSelect.addEventListener("change", loadSelectedChat);
+
+  const hostInput = document.getElementById("host-address");
+  if (hostInput) hostInput.addEventListener("change", setHostAddress);
+
+  const systemPromptInput = document.getElementById("system-prompt");
+  if (systemPromptInput) systemPromptInput.addEventListener("change", setSystemPrompt);
+
+  // Host apply button logic
+  const applyHostBtn = document.getElementById("apply-host");
+  const hostFeedback = document.getElementById("host-feedback");
+  if (applyHostBtn && hostInput && hostFeedback) {
+    applyHostBtn.addEventListener("click", function () {
+      const hostValue = hostInput.value;
+      localStorage.setItem("host-address", hostValue);
+      hostFeedback.innerText = "Host set!";
+      setTimeout(() => {
+        hostFeedback.innerText = "";
+      }, 1200);
+      if (typeof populateModels === "function") populateModels();
+    });
+
+    hostInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        applyHostBtn.click();
+      }
+    });
+  }
+});
+
+
 function autoFocusInput() {
   const userInput = document.getElementById("user-input");
   userInput.focus();
 }
 
-/**
- * Updates the URL query string to include the selected model name.
- * @param {string} model - The name of the selected model.
- */
+/*
+takes in model as a string
+updates the query parameters of page url to include model name
+*/
 function updateModelInQueryString(model) {
   // make sure browser supports features
   if (window.history.replaceState && "URLSearchParams" in window) {
@@ -58,10 +94,7 @@ function updateModelInQueryString(model) {
   }
 }
 
-/**
- * Fetches the available models from the API and populates the model selection dropdown.
- * It also sets the selected model based on the URL query string, if present.
- */
+// Fetch available models and populate the dropdown
 async function populateModels() {
   document
     .getElementById("send-button")
@@ -98,10 +131,9 @@ async function populateModels() {
       updateModelInQueryString(selectElement.value);
     }
   } catch (error) {
-    // Display an error modal if communication with the API fails.
     document.getElementById("errorText").innerHTML = DOMPurify.sanitize(
       marked.parse(
-        `llm-chat was unable to communitcate with Abacus.ai due to the following error:\n\n` +
+        `llm-chat was unable to communitcate with Ollama due to the following error:\n\n` +
           `\`\`\`${error.message}\`\`\`\n\n---------------------\n` +
           faqString,
       ),
@@ -111,41 +143,37 @@ async function populateModels() {
   }
 }
 
-/**
- * Adjusts the bottom padding of the chat container to match the height of the input area.
- */
+// adjusts the padding at the bottom of scrollWrapper to be the height of the input box
 function adjustPadding() {
   const inputBoxHeight = document.getElementById("input-area").offsetHeight;
   const scrollWrapper = document.getElementById("scroll-wrapper");
   scrollWrapper.style.paddingBottom = `${inputBoxHeight + 15}px`;
 }
 
-// Observe changes in the input area's size and adjust padding accordingly.
+// sets up padding resize whenever input box has its height changed
 const autoResizePadding = new ResizeObserver(() => {
   adjustPadding();
 });
 autoResizePadding.observe(document.getElementById("input-area"));
 
-/**
- * Gets the value of the selected model from the dropdown.
- * @returns {string} The selected model name.
- */
+// Function to get the selected model
 function getSelectedModel() {
   return document.getElementById("model-select").value;
 }
 
-//--- Auto-scroll functionality ---//
+// variables to handle auto-scroll
+// we only need one ResizeObserver and isAutoScrollOn variable globally
+// no need to make a new one for every time submitRequest is called
 const scrollWrapper = document.getElementById("scroll-wrapper");
 let isAutoScrollOn = true;
-
-// Automatically scroll to the bottom of the chat when a new message is added.
+// autoscroll when new line is added
 const autoScroller = new ResizeObserver(() => {
   if (isAutoScrollOn) {
     scrollWrapper.scrollIntoView({ behavior: "smooth", block: "end" });
   }
 });
 
-// Disable auto-scroll when the user scrolls up, and re-enable it when they scroll to the bottom.
+// event listener for scrolling
 let lastKnownScrollPosition = 0;
 let ticking = false;
 document.addEventListener("scroll", (event) => {
@@ -163,7 +191,7 @@ document.addEventListener("scroll", (event) => {
     !isAutoScrollOn &&
     window.scrollY > lastKnownScrollPosition && // make sure scroll direction is down
     window.scrollY >=
-      document.documentElement.scrollHeight - window.innerHeight - 30 // add 30px of space--no need to scroll all the way down, just most of the way
+      document.documentElement.scrollHeight - window.innerHeight - 30 
   ) {
     window.requestAnimationFrame(() => {
       isAutoScrollOn = true;
@@ -174,44 +202,41 @@ document.addEventListener("scroll", (event) => {
   lastKnownScrollPosition = window.scrollY;
 });
 
-/**
- * Handles the submission of a user's chat message.
- * It sends the request to the API and processes the streaming response.
- */
+// Function to handle the user input and call the API functions
 async function submitRequest() {
   document.getElementById("chat-container").style.display = "block";
 
   const input = document.getElementById("user-input").value;
-  if (!input.trim()) return; // Do not send empty messages
-
   const selectedModel = getSelectedModel();
   const context = document.getElementById("chat-history").context;
   const systemPrompt = document.getElementById("system-prompt").value;
+  const hostOverride = document.getElementById("host-address").value
   const data = {
     model: selectedModel,
     prompt: input,
     context: context,
     system: systemPrompt,
+    host: hostOverride
   };
 
-  // Create and display the user's message
+  // Create user message element and append to chat history
   let chatHistory = document.getElementById("chat-history");
   let userMessageDiv = document.createElement("div");
   userMessageDiv.className = "mb-2 user-message";
   userMessageDiv.innerText = input;
   chatHistory.appendChild(userMessageDiv);
 
-  // Create a container for the AI's response, including a spinner
+  // Create response container
   let responseDiv = document.createElement("div");
   responseDiv.className = "response-message mb-2 text-start";
-  responseDiv.style.minHeight = "3em";
-  let spinner = document.createElement("div");
+  responseDiv.style.minHeight = "3em"; 
+  spinner = document.createElement("div");
   spinner.className = "spinner-border text-light";
   spinner.setAttribute("role", "status");
   responseDiv.appendChild(spinner);
   chatHistory.appendChild(responseDiv);
 
-  // Create a "Stop" button to allow the user to cancel the request
+  // create button to stop text generation
   let interrupt = new AbortController();
   let stopButton = document.createElement("button");
   stopButton.className = "btn btn-danger";
@@ -220,74 +245,74 @@ async function submitRequest() {
     e.preventDefault();
     interrupt.abort("Stop button pressed");
   };
+  // add button after sendButton
   const sendButton = document.getElementById("send-button");
   sendButton.insertAdjacentElement("beforebegin", stopButton);
 
-  // Observe the response container to trigger auto-scrolling
+  // change autoScroller to keep track of our new responseDiv
   autoScroller.observe(responseDiv);
 
   postRequest(data, interrupt.signal)
     .then(async (response) => {
       await getResponse(response, (parsedResponse) => {
-        if (parsedResponse.error) {
-          responseDiv.innerHTML = `Error: ${parsedResponse.error}`;
-          return;
+        let word = parsedResponse.response;
+        if (parsedResponse.done) {
+          chatHistory.context = parsedResponse.context;
+          // Copy button
+          let copyButton = document.createElement("button");
+          copyButton.className = "btn btn-secondary copy-button";
+          copyButton.innerHTML = clipboardIcon;
+          copyButton.onclick = () => {
+            navigator.clipboard
+              .writeText(responseDiv.hidden_text)
+              .then(() => {
+                console.log("Text copied to clipboard");
+              })
+              .catch((err) => {
+                console.error("Failed to copy text:", err);
+              });
+          };
+          responseDiv.appendChild(copyButton);
         }
-
-        chatHistory.context = parsedResponse.context;
-        responseDiv.innerHTML = DOMPurify.sanitize(marked.parse(parsedResponse.response));
-
-        // Add a "Copy" button
-        let copyButton = document.createElement("button");
-        copyButton.className = "btn btn-secondary copy-button";
-        copyButton.innerHTML = clipboardIcon;
-        copyButton.onclick = () => {
-          navigator.clipboard
-            .writeText(parsedResponse.response)
-            .then(() => {
-              console.log("Text copied to clipboard");
-            })
-            .catch((err) => {
-              console.error("Failed to copy text:", err);
-            });
-        };
-        responseDiv.appendChild(copyButton);
+        // add word to response
+        if (word != undefined && word != "") {
+          if (responseDiv.hidden_text == undefined) {
+            responseDiv.hidden_text = "";
+          }
+          responseDiv.hidden_text += word;
+          responseDiv.innerHTML = DOMPurify.sanitize(
+            marked.parse(responseDiv.hidden_text),
+          ); // Append word to response container
+        }
       });
     })
     .then(() => {
-      // Clean up after the response is complete
-      stopButton.remove();
+      stopButton.remove(); // Remove stop button from DOM now that all text has been generated
       spinner.remove();
     })
     .catch((error) => {
       if (error !== "Stop button pressed") {
         console.error(error);
       }
-      // Clean up if an error occurs
       stopButton.remove();
       spinner.remove();
     });
 
-  // Clear the user input field
+  // Clear user input
   const element = document.getElementById("user-input");
   element.value = "";
   $(element).css("height", textBoxBaseHeight + "px");
 }
 
-/**
- * Event listener for the user input field to submit on Ctrl+Enter or Cmd+Enter.
- */
+// Event listener for Ctrl + Enter or CMD + Enter
 document.getElementById("user-input").addEventListener("keydown", function (e) {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
     submitRequest();
   }
 });
-
-/**
- * Initializes the application when the window loads.
- * Sets up event listeners and populates initial data.
- */
-window.onload = () => {
+/*
+document.addEventListener("DOMContentLoaded", function () {
+//window.onload = () => {
   updateChatList();
   populateModels();
   adjustPadding();
@@ -296,30 +321,18 @@ window.onload = () => {
   document.getElementById("delete-chat").addEventListener("click", deleteChat);
   document.getElementById("new-chat").addEventListener("click", startNewChat);
   document.getElementById("saveName").addEventListener("click", saveChat);
-  document
-    .getElementById("chat-select")
-    .addEventListener("change", loadSelectedChat);
-  document
-    .getElementById("host-address")
-    .addEventListener("change", setHostAddress);
-  document
-    .getElementById("system-prompt")
-    .addEventListener("change", setSystemPrompt);
+  document.getElementById("chat-select").addEventListener("change", loadSelectedChat);
+  document.getElementById("host-address").addEventListener("change", setHostAddress);
+  document.getElementById("system-prompt").addEventListener("change", setSystemPrompt);
 };
-
-/**
- * Deletes the currently selected chat from local storage.
- */
+*/
 function deleteChat() {
   const selectedChat = document.getElementById("chat-select").value;
-  if (!selectedChat) return;
   localStorage.removeItem(selectedChat);
-  startNewChat();
+  updateChatList();
 }
 
-/**
- * Saves the current chat history to local storage with a user-provided name.
- */
+// Function to save chat with a unique name
 function saveChat() {
   const chatName = document.getElementById("userName").value;
 
@@ -344,63 +357,41 @@ function saveChat() {
     }),
   );
   updateChatList();
-  document.getElementById("chat-select").value = chatName;
 }
 
-/**
- * Loads a selected chat from local storage into the chat interface.
- */
+// Function to load selected chat from dropdown
 function loadSelectedChat() {
   const selectedChat = document.getElementById("chat-select").value;
-  if (!selectedChat) return;
   const obj = JSON.parse(localStorage.getItem(selectedChat));
   document.getElementById("chat-history").innerHTML = obj.history;
   document.getElementById("chat-history").context = obj.context;
   document.getElementById("system-prompt").value = obj.system;
-  document.getElementById("model-select").value = obj.model;
   updateModelInQueryString(obj.model);
   document.getElementById("chat-container").style.display = "block";
 }
 
-/**
- * Clears the current chat history and starts a new chat.
- */
 function startNewChat() {
-  document.getElementById("chat-history").innerHTML = "";
+  document.getElementById("chat-history").innerHTML = null;
   document.getElementById("chat-history").context = null;
   document.getElementById("chat-container").style.display = "none";
-  document.getElementById("chat-select").value = "";
+  updateChatList();
 }
 
-/**
- * Updates the chat list dropdown with the saved chats from local storage.
- */
+// Function to update chat list dropdown
 function updateChatList() {
   const chatList = document.getElementById("chat-select");
-  const selectedChat = chatList.value;
   chatList.innerHTML =
-    '<option value="" disabled>Select a chat</option>';
+    '<option value="" disabled selected>Select a chat</option>';
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    // Filter out non-chat items
-    if (key === "host-address" || key === "system-prompt") continue;
+    if (key === "host-address" || key == "system-prompt") continue;
     const option = document.createElement("option");
     option.value = key;
     option.text = key;
     chatList.add(option);
   }
-  // Restore the previous selection if it still exists
-  if ([...chatList.options].map((o) => o.value).includes(selectedChat)) {
-    chatList.value = selectedChat;
-  } else {
-    chatList.value = "";
-  }
 }
 
-/**
- * Automatically adjusts the height of a textarea element based on its content.
- * @param {HTMLTextAreaElement} element - The textarea element to resize.
- */
 function autoGrow(element) {
   const maxHeight = 200; // This should match the max-height set in CSS
 
@@ -420,3 +411,4 @@ function autoGrow(element) {
 
   $(element).css("height", newHeight + "px");
 }
+

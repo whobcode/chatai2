@@ -1,121 +1,83 @@
-/**
- * @file This file handles the API communication for the chat application,
- * including fetching models, sending requests, and processing responses.
- * It also manages user settings like the host address and system prompt.
- */
+const worker_base = (window.__WORKER_BASE__ || '') + '/v1';
+const SERVICE_API_KEY = window.__SERVICE_API_KEY__ || '';
 
-var rebuildRules = undefined;
-// This code is for a Chrome extension that modifies request headers to handle CORS.
-if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id) {
-  /**
-   * Rebuilds the declarativeNetRequest rules for a Chrome extension to modify headers.
-   * This is used to set the Origin header for requests to the Abacus.ai API.
-   * @param {string} domain - The domain to set as the Origin.
-   */
-  rebuildRules = async function (domain) {
-    const domains = [domain];
-    /** @type {chrome.declarativeNetRequest.Rule[]} */
-    const rules = [
-      {
-        id: 1,
-        condition: {
-          requestDomains: domains,
-        },
-        action: {
-          type: "modifyHeaders",
-          requestHeaders: [
-            {
-              header: "origin",
-              operation: "set",
-              value: `http://${domain}`,
-            },
-          ],
-        },
-      },
-    ];
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: rules.map((r) => r.id),
-      addRules: rules,
-    });
-  };
-}
 
-// The host address for the backend API.
-// By default, this is the same origin as the frontend.
-var api_host = localStorage.getItem("host-address");
+var ollama_host = localStorage.getItem("host-address");
 const hostAddressInput = document.getElementById("host-address");
-if (!api_host) {
-  api_host = location.origin;
+if (!ollama_host) {
+  ollama_host = location.origin;
 } else {
-  hostAddressInput.value = api_host;
+  hostAddressInput.value = ollama_host;
 }
-hostAddressInput.setAttribute("placeholder", api_host);
+hostAddressInput.setAttribute("placeholder", ollama_host);
 
-// Initialize the system prompt from local storage.
-const system_prompt = localStorage.getItem("system-prompt");
-if (system_prompt) {
-  document.getElementById("system-prompt").value = system_prompt;
+const ollama_system_prompt = localStorage.getItem("system-prompt");
+if (ollama_system_prompt) {
+  document.getElementById("system-prompt").value = ollama_system_prompt;
 }
-
-if (rebuildRules) {
-  rebuildRules(api_host);
-}
-
-/**
- * Sets the host address from the input field, saves it to local storage,
- * and repopulates the models list.
- */
-function setHostAddress() {
-  api_host = document.getElementById("host-address").value;
-  localStorage.setItem("host-address", api_host);
-  populateModels();
-  if (rebuildRules) {
-    rebuildRules(api_host);
-  }
-}
-
-/**
- * Sets the system prompt from the input field and saves it to local storage.
- */
-function setSystemPrompt() {
-  const systemPrompt = document.getElementById("system-prompt").value;
-  localStorage.setItem("system-prompt", systemPrompt);
-}
-
-/**
- * Fetches the list of available models from the API.
- * @returns {Promise<object>} A promise that resolves to the JSON response from the API.
- */
 async function getModels() {
-  const response = await fetch(`${api_host}/api/tags`);
-  const data = await response.json();
-  return data;
+  const r = await fetch(`${worker_base}/models`, {
+    headers: { Authorization: `Bearer ${SERVICE_API_KEY}` }
+  });
+  if (!r.ok) throw new Error(`models ${r.status}`);
+  const j = await r.json();
+  // Normalize to {models:[{name}]} for existing UI
+  const models = Array.isArray(j?.data) ? j.data.map(m => ({ name: m.id })) : (j.models || []);
+  return { models };
 }
-
-/**
- * Sends a POST request to the API with the chat data.
- * @param {object} data - The data to send in the request body.
- * @param {AbortSignal} signal - The abort signal to allow for request cancellation.
- * @returns {Promise<Response>} A promise that resolves to the fetch Response object.
- */
 function postRequest(data, signal) {
-  const URL = `${api_host}/api/generate`;
-  return fetch(URL, {
+  const model = data.model.includes(':') ? data.model : `ollama:${data.model}`;
+  const body = {
+    model,
+    stream: true,
+    messages: [
+      data.system ? { role: 'system', content: data.system } : null,
+      { role: 'user', content: data.prompt }
+    ].filter(Boolean)
+  };
+  return fetch(`${worker_base}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${SERVICE_API_KEY}`
     },
-    body: JSON.stringify(data),
-    signal: signal,
+    body: JSON.stringify(body),
+    signal
   });
 }
-
-/**
- * Processes a streaming response from the server.
- * @param {Response} response - The response object from the fetch request.
- * @param {function} callback - A callback function to process each JSON object from the stream.
- */
 async function getResponse(response, callback) {
-  const data = await response.json();
-  callback(data);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\\n\\n")) !== -1) {
+      const chunk = buf.slice(0, idx).trim();
+      buf = buf.slice(idx + 2);
+      if (!chunk) continue;
+      const line = chunk.startsWith("data:") ? chunk.slice(5).trim() : chunk;
+      if (line === "[DONE]") { callback({ done: true }); continue; }
+      try {
+        const json = JSON.parse(line);
+        const choice = json?.choices?.[0];
+        const delta = choice?.delta?.content ?? choice?.message?.content ?? "";
+        if (delta) callback({ response: delta });
+        if (choice?.finish_reason) callback({ done: true });
+      } catch (_) {
+        // ignore parse errors of keep-alives
+      }
+    }
+  }
+}
+function setHostAddress() {
+  const hostAddressField = document.getElementById("host-address");
+  if (!hostAddressField) return;
+  const host = hostAddressField.value.trim();
+  if (host) {
+    const base = host.endsWith('/') ? host.slice(0, -1) : host;
+    window.__WORKER_BASE__ = base;
+  }
 }
