@@ -1,61 +1,87 @@
+/**
+ * @file This file contains the Cloudflare Worker that handles chat generation requests.
+ * It receives a prompt from the client, calls the Abacus.ai API, and returns the response.
+ */
+
+/**
+ * Handles POST requests to the /api/generate endpoint.
+ * This function receives a prompt from the client, sends it to the Abacus.ai API,
+ * and returns the response.
+ *
+ * @param {object} context - The Cloudflare Pages context object.
+ * @param {Request} context.request - The incoming request object.
+ * @param {object} context.env - The environment object, containing secrets like the API key.
+ * @returns {Response} A JSON response with the AI-generated text.
+ */
 export async function onRequest(context) {
   const { request, env } = context;
-  // CORS + content headers
+
+  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST,OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/x-ndjson',
+    'Content-Type': 'application/json',
   };
 
-  // Handle preflight
+  // Handle preflight OPTIONS request for CORS
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });
   }
 
-  // Only allow POST
+  // Ensure the request method is POST
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405, headers });
   }
 
-  // Parse JSON body
+  // Parse the JSON body from the request
   let body;
   try {
     body = await request.json();
   } catch {
     return new Response('Invalid JSON', { status: 400, headers });
   }
-  const { model, prompt, system } = body;
-  const messages = [
-    { role: 'user', content: prompt },
-    { role: 'system', content: system },
-  ];
 
-  // Streamed AI response
-  const response = await env.AI.run(model, { messages, stream: true });
-  const stream = response
-    .pipeThrough(new TextDecoderStream())
-    .pipeThrough(new SSEToStream())
-    .pipeThrough(new TextEncoderStream());
+  const { model, prompt } = body;
 
-  return new Response(stream, { headers });
-}
+  const abacusApiUrl = 'https://api.abacus.ai/api/v0/createChatSession';
+  const requestData = {
+    message: prompt,
+    llm_model: model || 'gpt-3.5-turbo',
+  };
 
-class SSEToStream extends TransformStream {
-  constructor() {
-    super({
-      transform: (chunk, controller) => this.processChunk(chunk, controller),
-      flush: (controller) => controller.enqueue(this.format({ done: true })),
+  try {
+    const abacusResponse = await fetch(abacusApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apiKey': env.ABACUS_API_KEY,
+      },
+      body: JSON.stringify(requestData),
+    });
+
+    const responseData = await abacusResponse.json();
+
+    if (responseData.success) {
+      // Adapt the response to the format the frontend expects
+      const frontendResponse = {
+        response: responseData.response,
+        done: true,
+        context: { session_id: responseData.chat_session_id },
+      };
+      return new Response(JSON.stringify(frontendResponse), { headers });
+    } else {
+      console.error('Abacus.ai API Error:', responseData.error);
+      return new Response(JSON.stringify({ error: responseData.error }), {
+        status: 500,
+        headers,
+      });
+    }
+  } catch (error) {
+    console.error('Error calling Abacus.ai API:', error);
+    return new Response(JSON.stringify({ error: 'Failed to call Abacus.ai API' }), {
+      status: 500,
+      headers,
     });
   }
-  processChunk(chunk, controller) {
-    chunk.split('data:').forEach(line => {
-      const match = line.match(/{.+?}/);
-      if (match) controller.enqueue(this.format(JSON.parse(match[0])));
-    });
-  }
-  format(payload) {
-    return JSON.stringify({ done: false, ...payload }) + '\n';
-  }
 }
-

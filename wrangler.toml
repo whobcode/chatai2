@@ -10,13 +10,14 @@ routes = [
 ]
 [placement]
 mode = "smart"
-[ai]
-binding = "AI"
+# For production environments, it is recommended to use a secret for the API key.
+# You can create a secret using the command:
+# npx wrangler secret put ABACUS_API_KEY
 [assets]
 directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/src/*","/api/generate","/api/tags","/public/*"]
+run_worker_first = ["/api/*"]
 # wrangler.toml (wrangler v3.88.0^)
 [observability.logs]
 enabled = true

@@ -1,7 +1,7 @@
 {
   "name": "llm-chat",
   "version": "1.0.0",
-  "description": "Just a simple HTML UI for Ollama",
+  "description": "A simple HTML UI for Abacus.ai",
   "main": "api.js",
   "scripts": {
     "deploy": "wrangler pages deploy",
