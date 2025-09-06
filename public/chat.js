@@ -76,12 +76,27 @@ async function populateModels() {
     selectElement.onchange = () =>
       updateModelInQueryString(selectElement.value);
 
-    data.models.forEach((model) => {
-      const option = document.createElement("option");
-      option.value = model.name;
-      option.innerText = model.name;
-      selectElement.appendChild(option);
-    });
+    const modelsByTask = data.models.reduce((acc, model) => {
+      const taskName = model.task.name || 'Other';
+      if (!acc[taskName]) {
+        acc[taskName] = [];
+      }
+      acc[taskName].push(model);
+      return acc;
+    }, {});
+
+    for (const taskName in modelsByTask) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = taskName;
+      modelsByTask[taskName].forEach((model) => {
+        const option = document.createElement("option");
+        option.value = model.name;
+        option.innerText = model.name;
+        option.title = model.description;
+        optgroup.appendChild(option);
+      });
+      selectElement.appendChild(optgroup);
+    }
 
     // select option present in url parameter if present
     const queryParams = new URLSearchParams(window.location.search);
