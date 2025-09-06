@@ -1,5 +1,5 @@
 name = "chatai2"
-main = "src/index.ts"
+main = "src/index.js"
 compatibility_flags = [ "nodejs_compat", "global_fetch_strictly_public" ]
 compatibility_date = "2025-07-21"
 workers_dev = false
