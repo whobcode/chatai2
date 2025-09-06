@@ -1,12 +1,12 @@
 {
-  "name": "llm-chat",
+  "name": "chatai2",
   "version": "1.0.0",
   "description": "A simple HTML UI for Abacus.ai",
-  "main": "api.js",
+  "main": "src/index.js",
   "scripts": {
-    "deploy": "wrangler pages deploy",
-    "dev": "wrangler pages dev",
-    "start": "wrangler pages dev"
+    "deploy": "npx wrangler deploy",
+    "dev": "npx wrangler dev",
+    "start": "npx wrangler dev"
   },
   "keywords": [],
   "author": "",
