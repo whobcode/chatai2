@@ -5,12 +5,14 @@
  */
 
 var rebuildRules = undefined;
-// This code is for a Chrome extension that modifies request headers to handle CORS.
+// This optional code block is intended for use within a Chrome extension.
+// It dynamically modifies request headers to handle potential CORS issues when
+// the application is run as an extension and communicates with a remote API host.
 if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id) {
   /**
-   * Rebuilds the declarativeNetRequest rules for a Chrome extension to modify headers.
-   * This is used to set the Origin header for requests to the Abacus.ai API.
-   * @param {string} domain - The domain to set as the Origin.
+   * Rebuilds the declarativeNetRequest rules for the Chrome extension to modify headers.
+   * This is used to set the 'Origin' header, which can be necessary for CORS.
+   * @param {string} domain - The target domain for which to set the Origin header.
    */
   rebuildRules = async function (domain) {
     const domains = [domain];
@@ -111,11 +113,11 @@ function postRequest(data, signal) {
 }
 
 /**
- * Processes a streaming response from the server.
+ * Processes the response from the server.
  * @param {Response} response - The response object from the fetch request.
- * @param {function} callback - A callback function to process each JSON object from the stream.
+ * @returns {Promise<object>} A promise that resolves to the JSON response data.
  */
-async function getResponse(response, callback) {
+async function getResponse(response) {
   const data = await response.json();
-  callback(data);
+  return data;
 }

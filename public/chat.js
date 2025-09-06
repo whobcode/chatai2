@@ -1,6 +1,6 @@
 /**
  * @file This file contains the main logic for the chat interface.
- * It handles user input, API requests, response streaming, and chat history management.
+ * It handles user input, API requests, response handling, and chat history management.
  */
 
 /**
@@ -176,7 +176,7 @@ document.addEventListener("scroll", (event) => {
 
 /**
  * Handles the submission of a user's chat message.
- * It sends the request to the API and processes the streaming response.
+ * It sends the request to the API and processes the response.
  */
 async function submitRequest() {
   document.getElementById("chat-container").style.display = "block";
@@ -226,47 +226,46 @@ async function submitRequest() {
   // Observe the response container to trigger auto-scrolling
   autoScroller.observe(responseDiv);
 
-  postRequest(data, interrupt.signal)
-    .then(async (response) => {
-      await getResponse(response, (parsedResponse) => {
-        if (parsedResponse.error) {
-          responseDiv.innerHTML = `Error: ${parsedResponse.error}`;
-          return;
-        }
+  try {
+    const response = await postRequest(data, interrupt.signal);
+    const parsedResponse = await getResponse(response);
 
-        chatHistory.context = parsedResponse.context;
-        responseDiv.innerHTML = DOMPurify.sanitize(marked.parse(parsedResponse.response));
+    if (parsedResponse.error) {
+      responseDiv.innerHTML = `Error: ${parsedResponse.error}`;
+    } else {
+      chatHistory.context = parsedResponse.context;
+      responseDiv.innerHTML = DOMPurify.sanitize(
+        marked.parse(parsedResponse.response),
+      );
 
-        // Add a "Copy" button
-        let copyButton = document.createElement("button");
-        copyButton.className = "btn btn-secondary copy-button";
-        copyButton.innerHTML = clipboardIcon;
-        copyButton.onclick = () => {
-          navigator.clipboard
-            .writeText(parsedResponse.response)
-            .then(() => {
-              console.log("Text copied to clipboard");
-            })
-            .catch((err) => {
-              console.error("Failed to copy text:", err);
-            });
-        };
-        responseDiv.appendChild(copyButton);
-      });
-    })
-    .then(() => {
-      // Clean up after the response is complete
-      stopButton.remove();
+      // Add a "Copy" button
+      let copyButton = document.createElement("button");
+      copyButton.className = "btn btn-secondary copy-button";
+      copyButton.innerHTML = clipboardIcon;
+      copyButton.onclick = () => {
+        navigator.clipboard
+          .writeText(parsedResponse.response)
+          .then(() => {
+            console.log("Text copied to clipboard");
+          })
+          .catch((err) => {
+            console.error("Failed to copy text:", err);
+          });
+      };
+      responseDiv.appendChild(copyButton);
+    }
+  } catch (error) {
+    // Handle abort errors silently
+    if (error.name !== "AbortError") {
+      console.error("Error fetching response:", error);
+      responseDiv.innerHTML = `Error: ${error.message}`;
+    }
+  } finally {
+    stopButton.remove();
+    if (spinner.parentNode) {
       spinner.remove();
-    })
-    .catch((error) => {
-      if (error !== "Stop button pressed") {
-        console.error(error);
-      }
-      // Clean up if an error occurs
-      stopButton.remove();
-      spinner.remove();
-    });
+    }
+  }
 
   // Clear the user input field
   const element = document.getElementById("user-input");
