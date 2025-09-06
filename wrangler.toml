@@ -1,27 +1,14 @@
-name = "chatai2"
-main = "./src/index.js"
-compatibility_flags = [ "nodejs_compat" ]
-compatibility_date = "2025-07-21"
-workers_dev = false
-account_id = "93e0a6dda0f48d77b387cae708297820"
-routes = [
- { pattern = "http://chatai2.hwmnbn.me/*", zone_id = "ff94bb317bdc9cf828f8821b5ded355d" },
- { pattern = "https://chatai2.hwmnbn.me/*", zone_id = "ff94bb317bdc9cf828f8821b5ded355d" } 
-]
-[placement]
-mode = "smart"
-# For production environments, it is recommended to use a secret for the API key.
-# You can create a secret using the command:
-# npx wrangler secret put ABACUS_API_KEY
-[assets]
-directory = "./public"
-binding = "ASSETS"
-not_found_handling = "single-page-application"
-run_worker_first = ["/api/*"]
-# wrangler.toml (wrangler v3.88.0^)
-[observability.logs]
-enabled = true
+# This is a configuration file for Cloudflare Pages.
+# It's used by the `wrangler pages dev` command for local development.
 
+# For production, it is strongly recommended to set environment variables
+# and secrets in the Cloudflare dashboard rather than committing them here.
 
+name = "llm-chat"
+compatibility_date = "2024-03-26"
 
-
+[vars]
+# For local development, add your Abacus.ai API key here.
+# IMPORTANT: For production, this should be set as a secret, not a plain text variable.
+# Use the command: npx wrangler secret put ABACUS_API_KEY
+ABACUS_API_KEY = "your-api-key-goes-here"
