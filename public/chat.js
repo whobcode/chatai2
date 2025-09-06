@@ -228,32 +228,64 @@ async function submitRequest() {
 
   try {
     const response = await postRequest(data, interrupt.signal);
-    const parsedResponse = await getResponse(response);
 
-    if (parsedResponse.error) {
-      responseDiv.innerHTML = `Error: ${parsedResponse.error}`;
-    } else {
-      chatHistory.context = parsedResponse.context;
-      responseDiv.innerHTML = DOMPurify.sanitize(
-        marked.parse(parsedResponse.response),
-      );
-
-      // Add a "Copy" button
-      let copyButton = document.createElement("button");
-      copyButton.className = "btn btn-secondary copy-button";
-      copyButton.innerHTML = clipboardIcon;
-      copyButton.onclick = () => {
-        navigator.clipboard
-          .writeText(parsedResponse.response)
-          .then(() => {
-            console.log("Text copied to clipboard");
-          })
-          .catch((err) => {
-            console.error("Failed to copy text:", err);
-          });
-      };
-      responseDiv.appendChild(copyButton);
+    // Check for a non-ok response and handle it
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
     }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullResponse = "";
+
+    // remove spinner after first response
+    spinner.remove();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop(); // Keep the last partial line in the buffer
+
+      for (const line of lines) {
+        if (line.trim() === "") continue;
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.response) {
+            fullResponse += parsed.response;
+            responseDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullResponse));
+          }
+          if (parsed.context) {
+            chatHistory.context = parsed.context;
+          }
+        } catch (e) {
+          console.error("Failed to parse JSON line:", line, e);
+        }
+      }
+    }
+
+    // Add the "Copy" button after the stream is complete
+    let copyButton = document.createElement("button");
+    copyButton.className = "btn btn-secondary copy-button";
+    copyButton.innerHTML = clipboardIcon;
+    copyButton.onclick = () => {
+      navigator.clipboard
+        .writeText(fullResponse)
+        .then(() => {
+          console.log("Text copied to clipboard");
+        })
+        .catch((err) => {
+          console.error("Failed to copy text:", err);
+        });
+    };
+    responseDiv.appendChild(copyButton);
+
   } catch (error) {
     // Handle abort errors silently
     if (error.name !== "AbortError") {
@@ -262,6 +294,7 @@ async function submitRequest() {
     }
   } finally {
     stopButton.remove();
+    // Ensure spinner is removed in all cases (e.g., if an error occurs before the first chunk)
     if (spinner.parentNode) {
       spinner.remove();
     }

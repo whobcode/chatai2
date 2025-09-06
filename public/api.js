@@ -112,12 +112,3 @@ function postRequest(data, signal) {
   });
 }
 
-/**
- * Processes the response from the server.
- * @param {Response} response - The response object from the fetch request.
- * @returns {Promise<object>} A promise that resolves to the JSON response data.
- */
-async function getResponse(response) {
-  const data = await response.json();
-  return data;
-}
