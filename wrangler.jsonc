@@ -1,0 +1,53 @@
+{
+  // Cloudflare Workers configuration for ChatAI 2.0
+  "name": "chatai2",
+  "main": "src/index.js",
+  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2025-07-21",
+  "workers_dev": false,
+  "account_id": "93e0a6dda0f48d77b387cae708297820",
+  "routes": [
+    {
+      "pattern": "http://chatai2.hwmnbn.me/",
+      "zone_id": "ff94bb317bdc9cf828f8821b5ded355d"
+    },
+    {
+      "pattern": "https://chatai2.hwmnbn.me/",
+      "zone_id": "ff94bb317bdc9cf828f8821b5ded355d"
+    }
+  ],
+
+  // Environment variables
+  "vars": {
+    // Ollama configuration
+    // For local development: http://localhost:11434
+    // For remote/production: https://deep.hwmnbn.me
+    "OLLAMA_BASE_URL": "https://deep.hwmnbn.me",
+
+    // AI Provider: "ollama" or "cloudflare" or "both"
+    "AI_PROVIDER": "both"
+  },
+
+  // Smart placement for optimal performance
+  "placement": {
+    "mode": "smart"
+  },
+
+  // Cloudflare Workers AI binding
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Static assets configuration
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // Observability and logging
+  "observability": {
+    "logs": {
+      "enabled": true
+    }
+  }
+}

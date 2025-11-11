@@ -38,6 +38,11 @@
     "skipLibCheck": true,
     "types": ["./worker-configuration.d.ts", "node"]
   },
-  "exclude": ["test"],
-  "include": ["worker-configuration.d.ts", "src/**/*.ts"]
+  "exclude": ["test", "node_modules"],
+  "include": [
+    "worker-configuration.d.ts",
+    "src/**/*.ts",
+    "src/**/*.js",
+    "public/**/*.js"
+  ]
 }

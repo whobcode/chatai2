@@ -75,7 +75,7 @@ body {
   transform: translateX(-50%);
   font-size: 0.88rem;
   text-shadow: 0 0 20px #000, 0 2px 32px #ee414199, 0 1px 0 #fff6;
-  z-index: 12000;
+  z-index: 1041;
   pointer-events: none;
 }
 @media (max-width: 600px){

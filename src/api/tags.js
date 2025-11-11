@@ -1,87 +1,66 @@
 /**
- * @file This file contains the Cloudflare Worker that handles chat generation requests.
- * It receives a prompt from the client, calls the Abacus.ai API, and returns the response.
+ * @file Provides a list of available models from Ollama
  */
 
 /**
- * Handles POST requests to the /api/generate endpoint.
- * This function receives a prompt from the client, sends it to the Abacus.ai API,
- * and returns the response.
+ * Handles GET requests to the /api/tags endpoint.
+ * Fetches available models from the Ollama instance.
  *
  * @param {object} context - The Cloudflare Pages context object.
- * @param {Request} context.request - The incoming request object.
- * @param {object} context.env - The environment object, containing secrets like the API key.
- * @returns {Response} A JSON response with the AI-generated text.
+ * @returns {Response} A JSON response containing the list of models.
  */
 export async function onRequest(context) {
-  const { request, env } = context;
+  // Use environment variable for Ollama URL, fallback to localhost
+  const OLLAMA_BASE_URL = context.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
-  // CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json',
   };
 
   // Handle preflight OPTIONS request for CORS
-  if (request.method === 'OPTIONS') {
+  if (context.request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers });
   }
 
-  // Ensure the request method is POST
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405, headers });
-  }
-
-  // Parse the JSON body from the request
-  let body;
   try {
-    body = await request.json();
-  } catch {
-    return new Response('Invalid JSON', { status: 400, headers });
-  }
+    // Fetch models from Ollama API
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
 
-  const { model, prompt } = body;
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+    }
 
-  const abacusApiUrl = 'https://api.abacus.ai/api/v0/createChatSession';
-  const requestData = {
-    message: prompt,
-    llm_model: model || 'gpt-3.5-turbo',
-  };
+    const data = await response.json();
 
-  try {
-    const abacusResponse = await fetch(abacusApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apiKey': env.ABACUS_API_KEY,
-      },
-      body: JSON.stringify(requestData),
-    });
+    // Transform Ollama response to match expected format
+    // Ollama returns: { models: [{name, model, modified_at, size, digest, details}] }
+    const models = data.models.map(model => ({
+      name: model.name,
+      model: model.model || model.name,
+      size: model.size,
+      modified_at: model.modified_at,
+      details: model.details,
+      task: { name: 'Text Generation' },
+      description: model.details?.family || model.name
+    }));
 
-    const responseData = await abacusResponse.json();
+    return new Response(JSON.stringify({ models }), { headers });
+  } catch (error) {
+    console.error('Failed to fetch models from Ollama:', error);
 
-    if (responseData.success) {
-      // Adapt the response to the format the frontend expects
-      const frontendResponse = {
-        response: responseData.response,
-        done: true,
-        context: { session_id: responseData.chat_session_id },
-      };
-      return new Response(JSON.stringify(frontendResponse), { headers });
-    } else {
-      console.error('Abacus.ai API Error:', responseData.error);
-      return new Response(JSON.stringify({ error: responseData.error }), {
+    // Return error response
+    return new Response(
+      JSON.stringify({
+        models: [],
+        error: `Failed to fetch models from Ollama: ${error.message}`
+      }),
+      {
         status: 500,
         headers,
-      });
-    }
-  } catch (error) {
-    console.error('Error calling Abacus.ai API:', error);
-    return new Response(JSON.stringify({ error: 'Failed to call Abacus.ai API' }), {
-      status: 500,
-      headers,
-    });
+      }
+    );
   }
 }

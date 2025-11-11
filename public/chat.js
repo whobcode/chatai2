@@ -4,13 +4,13 @@
  */
 
 /**
- * A string containing FAQ information about connecting to the Abacus.ai API.
+ * A string containing FAQ information about connecting to the Ollama API.
  * @type {string}
  */
 const faqString = `
-**How do I connect to the Abacus.ai API?**
+**How do I connect to the Ollama API?**
 
-This application is configured to connect to the Abacus.ai API by default. Ensure you have a valid API key and that the host address is set correctly. For more information, please refer to the [Abacus.ai API documentation](https://abacus.ai/help/api/ref/).
+This application is configured to connect to your Ollama instance via a cloudflared tunnel. Ensure Ollama is running and accessible at the configured URL. For more information, please refer to the [Ollama documentation](https://github.com/ollama/ollama/blob/main/docs/api.md).
 `;
 
 /**
@@ -113,16 +113,8 @@ async function populateModels() {
       updateModelInQueryString(selectElement.value);
     }
   } catch (error) {
-    // Display an error modal if communication with the API fails.
-    document.getElementById("errorText").innerHTML = DOMPurify.sanitize(
-      marked.parse(
-        `llm-chat was unable to communitcate with Abacus.ai due to the following error:\n\n` +
-          `\`\`\`${error.message}\`\`\`\n\n---------------------\n` +
-          faqString,
-      ),
-    );
-    let modal = new bootstrap.Modal(document.getElementById("errorModal"));
-    modal.show();
+    // Log error to console instead of showing modal
+    console.error('Failed to load models:', error);
   }
 }
 
@@ -200,17 +192,41 @@ async function submitRequest() {
   if (!input.trim()) return; // Do not send empty messages
 
   const selectedModel = getSelectedModel();
-  const context = document.getElementById("chat-history").context;
   const systemPrompt = document.getElementById("system-prompt").value;
+  const chatHistory = document.getElementById("chat-history");
+
+  // Build messages array for chat API format
+  const messages = [];
+
+  // Add system prompt if present
+  if (systemPrompt) {
+    messages.push({
+      role: "system",
+      content: systemPrompt
+    });
+  }
+
+  // Add conversation history
+  if (!chatHistory.messages) {
+    chatHistory.messages = [];
+  }
+
+  // Add all previous messages from history
+  messages.push(...chatHistory.messages);
+
+  // Add current user message
+  messages.push({
+    role: "user",
+    content: input
+  });
+
   const data = {
     model: selectedModel,
-    prompt: input,
-    context: context,
-    system: systemPrompt,
+    messages: messages,
+    stream: true
   };
 
   // Create and display the user's message
-  let chatHistory = document.getElementById("chat-history");
   let userMessageDiv = document.createElement("div");
   userMessageDiv.className = "mb-2 user-message";
   userMessageDiv.innerText = input;
@@ -272,18 +288,31 @@ async function submitRequest() {
         if (line.trim() === "") continue;
         try {
           const parsed = JSON.parse(line);
-          if (parsed.response) {
-            fullResponse += parsed.response;
+          // Handle chat API format: parsed.message.content
+          if (parsed.message && parsed.message.content) {
+            fullResponse += parsed.message.content;
             responseDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullResponse));
           }
-          if (parsed.context) {
-            chatHistory.context = parsed.context;
+          // Also handle legacy format for backwards compatibility
+          else if (parsed.response) {
+            fullResponse += parsed.response;
+            responseDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullResponse));
           }
         } catch (e) {
           console.error("Failed to parse JSON line:", line, e);
         }
       }
     }
+
+    // Save the conversation to history
+    chatHistory.messages.push({
+      role: "user",
+      content: input
+    });
+    chatHistory.messages.push({
+      role: "assistant",
+      content: fullResponse
+    });
 
     // Add the "Copy" button after the stream is complete
     let copyButton = document.createElement("button");
@@ -377,15 +406,16 @@ function saveChat() {
   bootstrapModal.hide();
 
   if (chatName === null || chatName.trim() === "") return;
-  const history = document.getElementById("chat-history").innerHTML;
-  const context = document.getElementById("chat-history").context;
+  const chatHistory = document.getElementById("chat-history");
+  const history = chatHistory.innerHTML;
+  const messages = chatHistory.messages || [];
   const systemPrompt = document.getElementById("system-prompt").value;
   const model = getSelectedModel();
   localStorage.setItem(
     chatName,
     JSON.stringify({
       history: history,
-      context: context,
+      messages: messages,
       system: systemPrompt,
       model: model,
     }),
@@ -401,8 +431,9 @@ function loadSelectedChat() {
   const selectedChat = document.getElementById("chat-select").value;
   if (!selectedChat) return;
   const obj = JSON.parse(localStorage.getItem(selectedChat));
-  document.getElementById("chat-history").innerHTML = obj.history;
-  document.getElementById("chat-history").context = obj.context;
+  const chatHistory = document.getElementById("chat-history");
+  chatHistory.innerHTML = obj.history;
+  chatHistory.messages = obj.messages || [];
   document.getElementById("system-prompt").value = obj.system;
   document.getElementById("model-select").value = obj.model;
   updateModelInQueryString(obj.model);
@@ -413,8 +444,9 @@ function loadSelectedChat() {
  * Clears the current chat history and starts a new chat.
  */
 function startNewChat() {
-  document.getElementById("chat-history").innerHTML = "";
-  document.getElementById("chat-history").context = null;
+  const chatHistory = document.getElementById("chat-history");
+  chatHistory.innerHTML = "";
+  chatHistory.messages = [];
   document.getElementById("chat-container").style.display = "none";
   document.getElementById("chat-select").value = "";
 }

@@ -24,9 +24,8 @@
             </div>
         </div>
     </div>
-    <div class="position-fixed w-100" style="z-index: 9999; top: 0px; height: 200px; background: linear-gradient(180deg, black, transparent);">
-        <div class="position-fixed w-100" style="z-index: 9999; top: 0px; height: 200px; background: linear-gradient(180deg, black, transparent);">
-            <div class="d-flex justify-content-between align-items-center m-0" style="padding: 16px;">
+    <div class="position-fixed w-100" style="z-index: 1040; top: 0px; height: 200px; background: linear-gradient(180deg, black, transparent); pointer-events: none;">
+            <div class="d-flex justify-content-between align-items-center m-0" style="padding: 16px; pointer-events: auto;">
                 <div class="d-flex align-items-center m-1">
                     <div class="p-2 flex-grow-1 bd-highlight">
                         <label for="system-prompt" class="me-2" style="font-size: normal;">System Prompt</label> <input id="system-prompt" class="form-control" type="text" placeholder="You are a helpful assistant" style="width: auto;"> <label for="host-address" class="me-2" style="font-size: normal;">Hostname</label> <input id="host-address" class="form-control" type="text" placeholder="http://localhost:11434" style="width: auto;"> <button id="apply-host" class="btn btn-outline-secondary ms-2" type="button">Apply Host</button> <span id="host-feedback" class="ms-2" style="color: #ffe58a;"></span>
@@ -63,18 +62,6 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button> <button type="button" class="btn btn-primary" id="saveName">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal fade" id="errorModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Unable to access ChatAi2</h5><button type="button" class="btn-close" data-bs-dismiss="modal">close</button>
-                </div>
-                <div class="modal-body">
-                    <p id="errorText"></p>
                 </div>
             </div>
         </div>
