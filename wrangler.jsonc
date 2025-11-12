@@ -22,10 +22,7 @@
     // Ollama configuration
     // For local development: http://localhost:11434
     // For remote/production: https://deep.hwmnbn.me
-    "OLLAMA_BASE_URL": "https://deep.hwmnbn.me",
-
-    // AI Provider: "ollama" or "cloudflare" or "both"
-    "AI_PROVIDER": "both"
+    "OLLAMA_BASE_URL": "https://deep.hwmnbn.me"
   },
 
   // Smart placement for optimal performance

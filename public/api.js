@@ -1,22 +1,13 @@
 /**
- * @file This file handles the API communication for the chat application,
- * including fetching models, sending requests, and processing responses.
- * It also manages user settings like the host address and system prompt.
+ * @file Client-side API communication for the chat application
+ * Handles fetching models, sending requests, and managing user settings
  */
 
 var rebuildRules = undefined;
-// This optional code block is intended for use within a Chrome extension.
-// It dynamically modifies request headers to handle potential CORS issues when
-// the application is run as an extension and communicates with a remote API host.
+// Chrome extension support for CORS handling
 if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id) {
-  /**
-   * Rebuilds the declarativeNetRequest rules for the Chrome extension to modify headers.
-   * This is used to set the 'Origin' header, which can be necessary for CORS.
-   * @param {string} domain - The target domain for which to set the Origin header.
-   */
   rebuildRules = async function (domain) {
     const domains = [domain];
-    /** @type {chrome.declarativeNetRequest.Rule[]} */
     const rules = [
       {
         id: 1,
@@ -42,8 +33,7 @@ if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id) {
   };
 }
 
-// The host address for the backend API.
-// By default, this is the same origin as the frontend.
+// The host address for the backend API
 var api_host = localStorage.getItem("host-address");
 const hostAddressInput = document.getElementById("host-address");
 if (!api_host) {
@@ -53,7 +43,7 @@ if (!api_host) {
 }
 hostAddressInput.setAttribute("placeholder", api_host);
 
-// Initialize the system prompt from local storage.
+// Initialize the system prompt from local storage
 const system_prompt = localStorage.getItem("system-prompt");
 if (system_prompt) {
   document.getElementById("system-prompt").value = system_prompt;
@@ -64,8 +54,7 @@ if (rebuildRules) {
 }
 
 /**
- * Sets the host address from the input field, saves it to local storage,
- * and repopulates the models list.
+ * Sets the host address and saves it to local storage
  */
 function setHostAddress() {
   api_host = document.getElementById("host-address").value;
@@ -77,7 +66,7 @@ function setHostAddress() {
 }
 
 /**
- * Sets the system prompt from the input field and saves it to local storage.
+ * Sets the system prompt and saves it to local storage
  */
 function setSystemPrompt() {
   const systemPrompt = document.getElementById("system-prompt").value;
@@ -85,8 +74,8 @@ function setSystemPrompt() {
 }
 
 /**
- * Fetches the list of available models from the API.
- * @returns {Promise<object>} A promise that resolves to the JSON response from the API.
+ * Fetches the list of available models from the API
+ * @returns {Promise<object>} Promise that resolves to the JSON response
  */
 async function getModels() {
   const response = await fetch(`${api_host}/api/tags`);
@@ -95,10 +84,10 @@ async function getModels() {
 }
 
 /**
- * Sends a POST request to the API with the chat data.
- * @param {object} data - The data to send in the request body.
- * @param {AbortSignal} signal - The abort signal to allow for request cancellation.
- * @returns {Promise<Response>} A promise that resolves to the fetch Response object.
+ * Sends a POST request to the generate API endpoint
+ * @param {object} data - The data to send in the request body
+ * @param {AbortSignal} signal - The abort signal to allow for request cancellation
+ * @returns {Promise<Response>} Promise that resolves to the fetch Response object
  */
 function postRequest(data, signal) {
   const URL = `${api_host}/api/generate`;
@@ -111,4 +100,3 @@ function postRequest(data, signal) {
     signal: signal,
   });
 }
-

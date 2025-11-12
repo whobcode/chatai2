@@ -1,6 +1,7 @@
 import { onRequest as onTagsRequest } from './api/tags.js';
 import { onRequest as onModelsRequest } from './api/models.js';
 import { onRequest as onGenerateRequest } from './api/generate.js';
+import { onRequest as onCloudflareModelsRequest } from './api/cloudflare-models.js';
 
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
@@ -43,10 +44,13 @@ var pages_template_worker_default = {
       return onModelsRequest({ request, env });
     }
     if (url.pathname === '/api/tags') {
-        return onTagsRequest({request, env})
+      return onTagsRequest({ request, env });
+    }
+    if (url.pathname === '/api/cloudflare-models') {
+      return onCloudflareModelsRequest({ request, env });
     }
     if (url.pathname === '/api/generate') {
-        return onGenerateRequest({request, env});
+      return onGenerateRequest({ request, env });
     }
 
     const handlerIterator = executeRequest(request);

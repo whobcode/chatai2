@@ -11,12 +11,11 @@
  */
 export async function onRequest(context) {
   const OLLAMA_BASE_URL = context.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-  const AI_PROVIDER = context.env.AI_PROVIDER || 'ollama';
 
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-AI-Provider',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 
   // Handle preflight OPTIONS request for CORS
@@ -26,13 +25,10 @@ export async function onRequest(context) {
 
   try {
     const body = await context.request.json();
-    const requestedProvider = context.request.headers.get('X-AI-Provider') ||
-                             (body.model?.startsWith('@cf/') || body.model?.startsWith('@hf/') ? 'cloudflare' : AI_PROVIDER);
 
-    // Determine which provider to use
-    const useCloudflare = requestedProvider === 'cloudflare' ||
-                          body.model?.startsWith('@cf/') ||
-                          body.model?.startsWith('@hf/');
+    // Automatically determine provider based on model ID format
+    // Cloudflare models start with @cf/ or @hf/, everything else goes to Ollama
+    const useCloudflare = body.model?.startsWith('@cf/') || body.model?.startsWith('@hf/');
 
     if (useCloudflare && context.env.AI) {
       // Use Cloudflare Workers AI
